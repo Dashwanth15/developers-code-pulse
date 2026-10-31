@@ -299,6 +299,125 @@ export const api = {
       const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
       return fetchWithAuth<PendingReviewQueueResponse>(`/analytics/reviews/pending${query}`);
     },
+
+    getTeamIntelligence: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<TeamIntelligenceResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<TeamIntelligenceResponse>(`/analytics/team${query}`);
+    },
+
+    getTeamTrends: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<TeamTrendsResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<TeamTrendsResponse>(`/analytics/team/trends${query}`);
+    },
+
+    getDoraOverview: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<DORAOverviewResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<DORAOverviewResponse>(`/analytics/dora${query}`);
+    },
+
+    getDeploymentFrequency: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<DeploymentFrequencyDetail> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<DeploymentFrequencyDetail>(`/analytics/dora/deployment-frequency${query}`);
+    },
+
+    getLeadTime: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<LeadTimeDetail> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<LeadTimeDetail>(`/analytics/dora/lead-time${query}`);
+    },
+
+    getChangeFailureRate: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<ChangeFailureRateDetail> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<ChangeFailureRateDetail>(`/analytics/dora/change-failure-rate${query}`);
+    },
+
+    getMeanTimeToRecovery: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<RecoveryTimeDetail> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<RecoveryTimeDetail>(`/analytics/dora/mean-time-to-recovery${query}`);
+    },
   },
 
   pullRequests: {
@@ -383,6 +502,72 @@ export const api = {
       return fetchWithAuth<BottleneckResponse>(`/bottlenecks/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
+      });
+    },
+  },
+
+  deployments: {
+    list: (params?: {
+      repository_id?: string;
+      environment?: string;
+      status?: string;
+      page?: number;
+      size?: number;
+    }): Promise<DeploymentListResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      if (params?.environment) searchParams.set("environment", params.environment);
+      if (params?.status) searchParams.set("status", params.status);
+      if (params?.page) searchParams.set("page", params.page.toString());
+      if (params?.size) searchParams.set("size", params.size.toString());
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<DeploymentListResponse>(`/deployments${query}`);
+    },
+
+    create: (payload: DeploymentCreateRequest): Promise<DeploymentResponse> => {
+      return fetchWithAuth<DeploymentResponse>("/deployments", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    sync: (payload?: { repository_id?: string; environment?: string }): Promise<SyncResultResponse> => {
+      return fetchWithAuth<SyncResultResponse>("/deployments/sync", {
+        method: "POST",
+        body: JSON.stringify(payload || {}),
+      });
+    },
+  },
+
+  incidents: {
+    list: (params?: {
+      repository_id?: string;
+      status?: string;
+      severity?: string;
+      page?: number;
+      size?: number;
+    }): Promise<IncidentListResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      if (params?.status) searchParams.set("status", params.status);
+      if (params?.severity) searchParams.set("severity", params.severity);
+      if (params?.page) searchParams.set("page", params.page.toString());
+      if (params?.size) searchParams.set("size", params.size.toString());
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<IncidentListResponse>(`/incidents${query}`);
+    },
+
+    create: (payload: IncidentCreateRequest): Promise<IncidentResponse> => {
+      return fetchWithAuth<IncidentResponse>("/incidents", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    sync: (payload?: { repository_id?: string; source?: string }): Promise<SyncResultResponse> => {
+      return fetchWithAuth<SyncResultResponse>("/incidents/sync", {
+        method: "POST",
+        body: JSON.stringify(payload || {}),
       });
     },
   },
@@ -691,6 +876,266 @@ export interface DetectionRunResponse {
   started_at: string;
   completed_at: string | null;
   message: string | null;
+}
+
+// ==============================================================================
+// Phase 7: Team Intelligence & DORA Metrics Interfaces
+// ==============================================================================
+
+export interface DORAMetricCard {
+  metric_type: string;
+  title: string;
+  status: "CALCULATED" | "INSUFFICIENT_DATA" | "REQUIRES_INTEGRATION";
+  value: number | null;
+  formatted_value: string;
+  unit: string;
+  performance_level: "ELITE" | "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+  performance_label: string;
+  trend_direction: "IMPROVED" | "DEGRADED" | "STABLE" | "NONE";
+  trend_percentage: number | null;
+  sample_size: number;
+  data_completeness: number;
+  period: string;
+  data_source: string;
+  methodology: string;
+  context_message: string | null;
+}
+
+export interface DORATrendPoint {
+  date: string;
+  value: number | null;
+  sample_size: number;
+}
+
+export interface DeploymentFrequencyDetail {
+  card: DORAMetricCard;
+  daily_deployments: number;
+  weekly_deployments: number;
+  monthly_deployments: number;
+  total_deployments: number;
+  successful_deployments: number;
+  failed_deployments: number;
+  history: DORATrendPoint[];
+  environment_breakdown: Record<string, number>;
+}
+
+export interface LeadTimeDetail {
+  card: DORAMetricCard;
+  median_hours: number | null;
+  p75_hours: number | null;
+  average_hours: number | null;
+  commit_to_merge_hours: number | null;
+  merge_to_deploy_hours: number | null;
+  sample_size: number;
+  traceability_rate: number;
+  history: DORATrendPoint[];
+}
+
+export interface ChangeFailureRateDetail {
+  card: DORAMetricCard;
+  failure_rate_percent: number | null;
+  total_production_deployments: number;
+  failed_deployments: number;
+  incident_linked_deployments: number;
+  degraded_deployments: number;
+  history: DORATrendPoint[];
+}
+
+export interface RecoveryTimeDetail {
+  card: DORAMetricCard;
+  median_hours: number | null;
+  p75_hours: number | null;
+  average_hours: number | null;
+  total_incidents: number;
+  resolved_incidents: number;
+  open_incidents: number;
+  history: DORATrendPoint[];
+}
+
+export interface RepositoryDORAOverview {
+  repository_id: string;
+  repository_name: string;
+  deployment_frequency: DORAMetricCard;
+  lead_time: DORAMetricCard;
+  change_failure_rate: DORAMetricCard;
+  mean_time_to_recovery: DORAMetricCard;
+}
+
+export interface DORAOverviewResponse {
+  organization_id: string;
+  time_window: string;
+  start_date: string;
+  end_date: string;
+  overall_performance: "ELITE" | "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+  deployment_frequency: DORAMetricCard;
+  lead_time_for_changes: DORAMetricCard;
+  change_failure_rate: DORAMetricCard;
+  mean_time_to_recovery: DORAMetricCard;
+  repository_breakdowns: RepositoryDORAOverview[];
+  integration_status: {
+    github_actions: boolean;
+    github_deployments: boolean;
+    incident_system: boolean;
+  };
+}
+
+export interface DeploymentResponse {
+  id: string;
+  organization_id: string;
+  repository_id: string | null;
+  repository_name: string | null;
+  external_deployment_id: string | null;
+  environment: string;
+  status: string;
+  deployed_at: string;
+  completed_at: string | null;
+  commit_sha: string | null;
+  ref_name: string | null;
+  source: string;
+  lead_time_seconds: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface DeploymentListResponse {
+  items: DeploymentResponse[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+export interface DeploymentCreateRequest {
+  repository_id?: string;
+  external_deployment_id?: string;
+  environment?: string;
+  status?: string;
+  deployed_at: string;
+  completed_at?: string;
+  commit_sha?: string;
+  ref_name?: string;
+  source?: string;
+  lead_time_seconds?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface IncidentResponse {
+  id: string;
+  organization_id: string;
+  repository_id: string | null;
+  repository_name: string | null;
+  external_incident_id: string | null;
+  title: string;
+  severity: string;
+  status: string;
+  started_at: string;
+  resolved_at: string | null;
+  recovery_duration_seconds: number | null;
+  source: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface IncidentListResponse {
+  items: IncidentResponse[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+export interface IncidentCreateRequest {
+  repository_id?: string;
+  external_incident_id?: string;
+  title: string;
+  severity?: string;
+  status?: string;
+  started_at: string;
+  resolved_at?: string;
+  source?: string;
+  deployment_id?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SyncResultResponse {
+  synced_count: number;
+  status: string;
+  message: string;
+}
+
+export interface MacroThroughput {
+  total_prs_opened: number;
+  total_prs_merged: number;
+  total_prs_closed: number;
+  merge_rate_percent: number;
+  total_commits: number;
+  total_reviews: number;
+}
+
+export interface DeliveryCadence {
+  deployments_count: number;
+  median_lead_time_hours: number | null;
+  median_review_turnaround_hours: number | null;
+  median_merge_latency_hours: number | null;
+}
+
+export interface BottleneckDistributionSummary {
+  total_active: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  by_type: Record<string, number>;
+}
+
+export interface CollaborationPattern {
+  multi_reviewer_pr_rate: number;
+  cross_repo_collaboration_index: number;
+  average_review_comments_per_pr: number;
+  review_coverage_rate: number;
+}
+
+export interface RepoDeliveryTrend {
+  repository_id: string;
+  repository_name: string;
+  pr_throughput: number;
+  merge_rate: number;
+  median_cycle_time_hours: number | null;
+  deployment_count: number;
+  active_bottlenecks: number;
+}
+
+export interface TeamTrendSeriesPoint {
+  date: string;
+  prs_opened: number;
+  prs_merged: number;
+  reviews_completed: number;
+  deployments: number;
+}
+
+export interface TeamIntelligenceResponse {
+  organization_id: string;
+  time_window: string;
+  start_date: string;
+  end_date: string;
+  anti_surveillance_notice: string;
+  throughput: MacroThroughput;
+  delivery_cadence: DeliveryCadence;
+  bottlenecks: BottleneckDistributionSummary;
+  collaboration: CollaborationPattern;
+  repository_trends: RepoDeliveryTrend[];
+  systemic_recommendations: Array<{
+    category: string;
+    title: string;
+    observation: string;
+    suggestion: string;
+  }>;
+}
+
+export interface TeamTrendsResponse {
+  organization_id: string;
+  time_window: string;
+  series: TeamTrendSeriesPoint[];
 }
 
 

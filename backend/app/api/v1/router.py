@@ -4,8 +4,10 @@ from app.api.v1.endpoints import (
     analytics,
     auth,
     bottlenecks,
+    deployments,
     github,
     health,
+    incidents,
     organizations,
     pull_requests,
     repositories,
@@ -28,7 +30,7 @@ api_v1_router.include_router(github.router)
 # Repository Management (Module 3)
 api_v1_router.include_router(repositories.router)
 
-# Analytics & Intelligence (Phase 3 & Phase 4)
+# Analytics & Intelligence (Phase 3 & Phase 4 & Phase 7)
 api_v1_router.include_router(analytics.router)
 
 # Pull Request Lifecycle & Analytics (Phase 4)
@@ -36,4 +38,10 @@ api_v1_router.include_router(pull_requests.router)
 
 # Bottleneck Detection Engine (Phase 6)
 api_v1_router.include_router(bottlenecks.router)
+
+# DORA Deployments & Releases (Phase 7)
+api_v1_router.include_router(deployments.router)
+
+# DORA Incidents & Outages (Phase 7)
+api_v1_router.include_router(incidents.router)
 

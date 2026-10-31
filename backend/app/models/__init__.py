@@ -2,6 +2,7 @@ from app.models.auth import Organization, OrganizationMember, RefreshToken, Role
 from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.bottlenecks import Bottleneck, BottleneckHistory, DetectionRun
 from app.models.commits import Commit, GitHubAccount
+from app.models.dora import Deployment, DeploymentIncident, DORAMetricSnapshot, Incident
 from app.models.github import GitHubInstallation, Repository, WebhookDelivery
 from app.models.pull_requests import PullRequest
 from app.models.reviews import PRReview, ReviewRequest
@@ -26,5 +27,9 @@ __all__ = [
     "Bottleneck",
     "BottleneckHistory",
     "DetectionRun",
+    "Deployment",
+    "Incident",
+    "DeploymentIncident",
+    "DORAMetricSnapshot",
 ]
 
