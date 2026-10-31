@@ -1,0 +1,122 @@
+services:
+  dcp-db:
+    image: postgres:16-alpine
+    container_name: dcp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dcp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dcp_password}
+      POSTGRES_DB: ${POSTGRES_DB:-dcp_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dcp_user} -d ${POSTGRES_DB:-dcp_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dcp-network
+
+  dcp-redis:
+    image: redis:7.2-alpine
+    container_name: dcp-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - dcp-network
+
+  dcp-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dcp-api
+    restart: unless-stopped
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-dcp_user}:${POSTGRES_PASSWORD:-dcp_password}@dcp-db:5432/${POSTGRES_DB:-dcp_db}
+      - REDIS_URL=redis://dcp-redis:6379/0
+      - CELERY_BROKER_URL=redis://dcp-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://dcp-redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      dcp-db:
+        condition: service_healthy
+      dcp-redis:
+        condition: service_healthy
+    networks:
+      - dcp-network
+
+  dcp-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dcp-worker
+    restart: unless-stopped
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info", "-Q", "webhooks,repo_sync,analytics_calc,report_gen"]
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-dcp_user}:${POSTGRES_PASSWORD:-dcp_password}@dcp-db:5432/${POSTGRES_DB:-dcp_db}
+      - REDIS_URL=redis://dcp-redis:6379/0
+      - CELERY_BROKER_URL=redis://dcp-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://dcp-redis:6379/0
+    depends_on:
+      dcp-db:
+        condition: service_healthy
+      dcp-redis:
+        condition: service_healthy
+    networks:
+      - dcp-network
+
+  dcp-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dcp-beat
+    restart: unless-stopped
+    command: ["celery", "-A", "app.workers.celery_app", "beat", "--loglevel=info"]
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-dcp_user}:${POSTGRES_PASSWORD:-dcp_password}@dcp-db:5432/${POSTGRES_DB:-dcp_db}
+      - REDIS_URL=redis://dcp-redis:6379/0
+      - CELERY_BROKER_URL=redis://dcp-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://dcp-redis:6379/0
+    depends_on:
+      dcp-redis:
+        condition: service_healthy
+    networks:
+      - dcp-network
+
+  dcp-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dcp-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    depends_on:
+      - dcp-api
+    networks:
+      - dcp-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  dcp-network:
+    driver: bridge
