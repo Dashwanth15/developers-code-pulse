@@ -1,7 +1,14 @@
+import sys
 import time
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+# Ensure backend root is on sys.path if main.py is invoked directly
+backend_dir = str(Path(__file__).resolve().parent.parent)
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 import structlog
 from fastapi import FastAPI, Request, Response
@@ -146,3 +153,9 @@ def create_application() -> FastAPI:
 
 
 app = create_application()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
