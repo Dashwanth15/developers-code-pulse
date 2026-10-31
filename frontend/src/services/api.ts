@@ -325,6 +325,67 @@ export const api = {
       return fetchWithAuth<PRReviewDetail[]>(`/pull-requests/${id}/reviews`);
     },
   },
+
+  bottlenecks: {
+    list: (params?: {
+      repository_id?: string;
+      severity?: string;
+      bottleneck_type?: string;
+      status?: string;
+      page?: number;
+      size?: number;
+    }): Promise<BottleneckListResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      if (params?.severity) searchParams.set("severity", params.severity);
+      if (params?.bottleneck_type) searchParams.set("bottleneck_type", params.bottleneck_type);
+      if (params?.status) searchParams.set("status", params.status);
+      if (params?.page) searchParams.set("page", params.page.toString());
+      if (params?.size) searchParams.set("size", params.size.toString());
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<BottleneckListResponse>(`/bottlenecks${query}`);
+    },
+
+    get: (id: string): Promise<BottleneckResponse> => {
+      return fetchWithAuth<BottleneckResponse>(`/bottlenecks/${id}`);
+    },
+
+    getSummary: (params?: { repository_id?: string }): Promise<BottleneckSummaryResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<BottleneckSummaryResponse>(`/bottlenecks/summary${query}`);
+    },
+
+    getTrends: (params?: { repository_id?: string; time_window?: string }): Promise<BottleneckTrendsResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<BottleneckTrendsResponse>(`/bottlenecks/trends${query}`);
+    },
+
+    getRecommendations: (params?: { repository_id?: string }): Promise<BottleneckRecommendationsResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<BottleneckRecommendationsResponse>(`/bottlenecks/recommendations${query}`);
+    },
+
+    detect: (payload?: { repository_id?: string; time_window?: string }): Promise<DetectionRunResponse> => {
+      return fetchWithAuth<DetectionRunResponse>("/bottlenecks/detect", {
+        method: "POST",
+        body: JSON.stringify(payload || {}),
+      });
+    },
+
+    updateStatus: (id: string, status: string): Promise<BottleneckResponse> => {
+      return fetchWithAuth<BottleneckResponse>(`/bottlenecks/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+    },
+  },
 };
 
 export interface CommitCadencePoint {
@@ -553,4 +614,83 @@ export interface PRReviewDetail {
   submitted_at: string;
   commit_sha: string | null;
 }
+
+export interface BottleneckResponse {
+  id: string;
+  organization_id: string;
+  repository_id: string | null;
+  repository_name: string | null;
+  bottleneck_type: string;
+  severity: string; // 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  confidence: string; // 'LOW' | 'MEDIUM' | 'HIGH'
+  title: string;
+  description: string;
+  evidence: Record<string, unknown>;
+  recommendation: string;
+  detected_at: string;
+  first_observed_at: string;
+  last_observed_at: string;
+  status: string; // 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED' | 'IGNORED'
+  fingerprint: string;
+  resolved_at: string | null;
+}
+
+export interface BottleneckListResponse {
+  items: BottleneckResponse[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+export interface BottleneckSummaryResponse {
+  total_active: number;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  affected_repositories_count: number;
+  resolved_count: number;
+  by_type: Record<string, number>;
+  by_severity: Record<string, number>;
+}
+
+export interface BottleneckTrendPoint {
+  date: string;
+  active_count: number;
+  detected_count: number;
+  resolved_count: number;
+}
+
+export interface BottleneckTrendsResponse {
+  time_window: string;
+  trends: BottleneckTrendPoint[];
+}
+
+export interface BottleneckRecommendationItem {
+  bottleneck_type: string;
+  title: string;
+  recommendation: string;
+  severity: string;
+  impact: string;
+  affected_repositories: string[];
+  evidence_summary: string;
+}
+
+export interface BottleneckRecommendationsResponse {
+  total_recommendations: number;
+  recommendations: BottleneckRecommendationItem[];
+}
+
+export interface DetectionRunResponse {
+  run_id: string;
+  status: string;
+  organization_id: string;
+  repository_id: string | null;
+  total_bottlenecks: number;
+  started_at: string;
+  completed_at: string | null;
+  message: string | null;
+}
+
 

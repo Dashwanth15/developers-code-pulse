@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     analytics,
     auth,
+    bottlenecks,
     github,
     health,
     organizations,
@@ -32,3 +33,7 @@ api_v1_router.include_router(analytics.router)
 
 # Pull Request Lifecycle & Analytics (Phase 4)
 api_v1_router.include_router(pull_requests.router)
+
+# Bottleneck Detection Engine (Phase 6)
+api_v1_router.include_router(bottlenecks.router)
+

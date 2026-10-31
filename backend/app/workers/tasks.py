@@ -46,3 +46,61 @@ def process_github_webhook(self, delivery_id: str) -> dict:
         "status": "PROCESSED",
         "processed_at": datetime.now(UTC).isoformat(),
     }
+
+
+@celery_app.task(
+    name="app.workers.tasks.run_bottleneck_detection",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=10,
+)
+def run_bottleneck_detection(
+    self,
+    organization_id: str,
+    repository_id: str | None = None,
+    time_window: str = "30d",
+) -> dict:
+    """
+    Background asynchronous Celery task orchestrating end-to-end
+    bottleneck detection across organization repositories.
+    """
+    import asyncio
+    import uuid
+
+    from app.database.session import get_session_factory
+    from app.services.bottlenecks.engine import BottleneckEngine
+
+    logger.info(
+        "bottleneck_detection_task_started",
+        org_id=organization_id,
+        repo_id=repository_id,
+        task_id=self.request.id,
+    )
+
+    async def _execute() -> dict:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            engine = BottleneckEngine()
+            org_uuid = uuid.UUID(organization_id)
+            repo_uuid = uuid.UUID(repository_id) if repository_id else None
+            run, detected = await engine.run_detection(
+                db=session,
+                organization_id=org_uuid,
+                repository_id=repo_uuid,
+                time_window=time_window,
+            )
+            return {
+                "run_id": str(run.id),
+                "status": run.status,
+                "total_bottlenecks": len(detected),
+                "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+            }
+
+    try:
+        result = asyncio.run(_execute())
+        logger.info("bottleneck_detection_task_finished", **result)
+        return result
+    except Exception as exc:
+        logger.error("bottleneck_detection_task_failed", error=str(exc))
+        raise self.retry(exc=exc) from exc
+
