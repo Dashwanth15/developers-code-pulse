@@ -174,22 +174,12 @@ async def sync_repository_commits(
     Backfills recent commits for a repository via GitHub REST API.
     """
     client = GitHubClient()
-    parts = repository.full_name.split("/")
-    if len(parts) != 2:
-        return 0
-    owner, repo_name = parts[0], parts[1]
-
-    endpoint = f"/repos/{owner}/{repo_name}/commits?per_page={min(max_commits, 100)}"
-    response = await client._client.get(endpoint)
-    if response.status_code != 200:
-        logger.warning(
-            "github_commits_sync_failed",
-            status_code=response.status_code,
-            repo=repository.full_name,
-        )
+    api_commits = await client.get_repository_commits(
+        repository.full_name, per_page=max_commits
+    )
+    if not api_commits:
         return 0
 
-    api_commits = response.json()
     saved_count = 0
 
     for item in api_commits:

@@ -89,3 +89,26 @@ class GitHubClient:
             except httpx.RequestError as exc:
                 logger.error("github_client_error", full_name=full_name, error=str(exc))
                 return None
+
+    async def get_repository_commits(
+        self, full_name: str, per_page: int = 100
+    ) -> list[dict]:
+        """Fetches recent commits for a repository."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(
+                    f"{GITHUB_API_BASE}/repos/{full_name}/commits",
+                    headers=self._get_headers(),
+                    params={"per_page": min(per_page, 100)},
+                )
+                if response.status_code == 200:
+                    return response.json()
+                logger.warning(
+                    "github_commits_fetch_failed",
+                    status=response.status_code,
+                    full_name=full_name,
+                )
+                return []
+            except httpx.RequestError as exc:
+                logger.error("github_client_error", full_name=full_name, error=str(exc))
+                return []
