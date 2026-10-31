@@ -1,0 +1,14 @@
+{
+  "name": "developers-code-pulse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Developers Code Pulse - Engineering Intelligence & Developer Productivity Platform",
+  "scripts": {
+    "dev": "npm --prefix backend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "test:backend": "npm --prefix backend test",
+    "test:frontend": "npm --prefix frontend test",
+    "build:frontend": "npm --prefix frontend run build"
+  }
+}
