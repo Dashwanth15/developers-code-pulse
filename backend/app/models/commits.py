@@ -11,6 +11,7 @@ from app.database.base import Base, TimestampMixin, UUIDMixin
 if TYPE_CHECKING:
     from app.models.auth import Organization
     from app.models.github import Repository
+    from app.models.pull_requests import PullRequest
 
 
 class GitHubAccount(Base, UUIDMixin, TimestampMixin):
@@ -41,6 +42,10 @@ class GitHubAccount(Base, UUIDMixin, TimestampMixin):
         "Commit",
         back_populates="author",
         cascade="all, delete-orphan",
+    )
+    pull_requests: Mapped[list["PullRequest"]] = relationship(
+        "PullRequest",
+        back_populates="author",
     )
 
     __table_args__ = (Index("ix_github_accounts_org_login", "organization_id", "login"),)

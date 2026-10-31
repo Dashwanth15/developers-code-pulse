@@ -113,3 +113,31 @@ class GitHubClient:
             except httpx.RequestError as exc:
                 logger.error("github_client_error", full_name=full_name, error=str(exc))
                 return []
+
+    async def get_repository_pull_requests(
+        self, full_name: str, state: str = "all", per_page: int = 100
+    ) -> list[dict]:
+        """Fetches pull requests for a repository."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(
+                    f"{GITHUB_API_BASE}/repos/{full_name}/pulls",
+                    headers=self._get_headers(),
+                    params={
+                        "state": state,
+                        "per_page": min(per_page, 100),
+                        "sort": "updated",
+                        "direction": "desc",
+                    },
+                )
+                if response.status_code == 200:
+                    return response.json()
+                logger.warning(
+                    "github_pulls_fetch_failed",
+                    status=response.status_code,
+                    full_name=full_name,
+                )
+                return []
+            except httpx.RequestError as exc:
+                logger.error("github_client_error", full_name=full_name, error=str(exc))
+                return []

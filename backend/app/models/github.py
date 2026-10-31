@@ -11,6 +11,7 @@ from app.database.base import Base, TimestampMixin, UUIDMixin
 if TYPE_CHECKING:
     from app.models.auth import Organization
     from app.models.commits import Commit
+    from app.models.pull_requests import PullRequest
 
 
 class GitHubInstallation(Base, UUIDMixin, TimestampMixin):
@@ -81,6 +82,11 @@ class Repository(Base, UUIDMixin, TimestampMixin):
     )
     commits: Mapped[list["Commit"]] = relationship(
         "Commit",
+        back_populates="repository",
+        cascade="all, delete-orphan",
+    )
+    pull_requests: Mapped[list["PullRequest"]] = relationship(
+        "PullRequest",
         back_populates="repository",
         cascade="all, delete-orphan",
     )

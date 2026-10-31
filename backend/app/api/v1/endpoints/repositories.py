@@ -11,12 +11,14 @@ from app.database.session import get_db
 from app.models.auth import OrganizationMember, Role
 from app.models.commits import Commit
 from app.models.github import Repository
+from app.models.pull_requests import PullRequest
 from app.schemas.commits import CommitDetailResponse
 from app.schemas.github import (
     ConnectRepositoryRequest,
     RepositoryResponse,
     ToggleMonitoringRequest,
 )
+from app.schemas.pull_requests import PullRequestResponse
 from app.services.auth.dependencies import (
     get_current_org_membership,
     require_role,
@@ -27,6 +29,7 @@ from app.services.github.github_service import (
     list_organization_repositories,
     toggle_repository_monitoring,
 )
+from app.services.github.pull_request_service import sync_repository_pull_requests
 
 router = APIRouter(prefix="/repositories", tags=["Repositories"])
 
@@ -182,4 +185,107 @@ async def trigger_commit_sync(
         "status": "success",
         "repository_id": str(repository_id),
         "synced_commits": count,
+    }
+
+
+@router.get(
+    "/{repository_id}/pull-requests",
+    response_model=list[PullRequestResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List Repository Pull Requests",
+    description="Returns recent pull requests for a monitored repository with lifecycle metrics.",
+)
+async def get_repository_pull_requests_endpoint(
+    repository_id: uuid.UUID,
+    membership: Annotated[OrganizationMember, Depends(get_current_org_membership)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    state: Annotated[str | None, Query(description="OPEN, CLOSED, or MERGED")] = None,
+) -> list[PullRequestResponse]:
+    repo_q = select(Repository).where(
+        Repository.id == repository_id,
+        Repository.organization_id == membership.organization_id,
+    )
+    repo_res = await db.execute(repo_q)
+    if not repo_res.scalar_one_or_none():
+        raise DCPException(
+            title="Repository Not Found",
+            detail=f"Repository '{repository_id}' does not exist in this organization.",
+            status_code=404,
+            code="REPOSITORY_NOT_FOUND",
+        )
+
+    pr_q = (
+        select(PullRequest)
+        .options(selectinload(PullRequest.author))
+        .where(PullRequest.repository_id == repository_id)
+    )
+    if state:
+        pr_q = pr_q.where(PullRequest.state == state.upper())
+
+    pr_q = pr_q.order_by(PullRequest.created_at_github.desc()).limit(limit).offset(offset)
+    res = await db.execute(pr_q)
+    prs = res.scalars().all()
+
+    return [
+        PullRequestResponse(
+            id=pr.id,
+            repository_id=pr.repository_id,
+            github_pr_id=pr.github_pr_id,
+            number=pr.number,
+            title=pr.title,
+            state=pr.state,
+            is_draft=pr.is_draft,
+            source_branch=pr.source_branch,
+            target_branch=pr.target_branch,
+            created_at_github=pr.created_at_github,
+            updated_at_github=pr.updated_at_github,
+            closed_at=pr.closed_at,
+            merged_at=pr.merged_at,
+            first_reviewed_at=pr.first_reviewed_at,
+            additions=pr.additions,
+            deletions=pr.deletions,
+            changed_files=pr.changed_files,
+            commit_count=pr.commit_count,
+            cycle_time_seconds=pr.cycle_time_seconds,
+            merge_time_seconds=pr.merge_time_seconds,
+            first_review_time_seconds=pr.first_review_time_seconds,
+            author_login=pr.author.login if pr.author else None,
+            author_avatar=pr.author.avatar_url if pr.author else None,
+        )
+        for pr in prs
+    ]
+
+
+@router.post(
+    "/{repository_id}/sync-prs",
+    status_code=status.HTTP_200_OK,
+    summary="Trigger Pull Request Synchronization",
+    description="Backfills recent pull requests for a repository from GitHub API.",
+)
+async def trigger_pr_sync(
+    repository_id: uuid.UUID,
+    membership: Annotated[OrganizationMember, Depends(require_role(Role.ADMIN))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict[str, str | int]:
+    repo_q = select(Repository).where(
+        Repository.id == repository_id,
+        Repository.organization_id == membership.organization_id,
+    )
+    repo_res = await db.execute(repo_q)
+    repo = repo_res.scalar_one_or_none()
+    if not repo:
+        raise DCPException(
+            title="Repository Not Found",
+            detail=f"Repository '{repository_id}' does not exist in this organization.",
+            status_code=404,
+            code="REPOSITORY_NOT_FOUND",
+        )
+
+    count = await sync_repository_pull_requests(db, repo)
+    return {
+        "status": "success",
+        "repository_id": str(repository_id),
+        "synced_pull_requests": count,
     }

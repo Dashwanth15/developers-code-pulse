@@ -201,6 +201,25 @@ export const api = {
         { method: "POST" }
       );
     },
+
+    getPullRequests: (
+      repoId: string,
+      params?: { limit?: number; offset?: number; state?: string }
+    ): Promise<PullRequestDetail[]> => {
+      const searchParams = new URLSearchParams();
+      if (params?.limit) searchParams.set("limit", params.limit.toString());
+      if (params?.offset) searchParams.set("offset", params.offset.toString());
+      if (params?.state) searchParams.set("state", params.state);
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<PullRequestDetail[]>(`/repositories/${repoId}/pull-requests${query}`);
+    },
+
+    syncPullRequests: (repoId: string): Promise<{ status: string; synced_pull_requests: number }> => {
+      return fetchWithAuth<{ status: string; synced_pull_requests: number }>(
+        `/repositories/${repoId}/sync-prs`,
+        { method: "POST" }
+      );
+    },
   },
 
   github: {
@@ -225,6 +244,44 @@ export const api = {
       }
       const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
       return fetchWithAuth<CommitAnalyticsResponse>(`/analytics/commits${query}`);
+    },
+
+    getPullRequests: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<PRAnalyticsResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<PRAnalyticsResponse>(`/analytics/pull-requests${query}`);
+    },
+  },
+
+  pullRequests: {
+    list: (params?: {
+      repository_id?: string;
+      state?: string;
+      page?: number;
+      size?: number;
+    }): Promise<PullRequestListResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      if (params?.state) searchParams.set("state", params.state);
+      if (params?.page) searchParams.set("page", params.page.toString());
+      if (params?.size) searchParams.set("size", params.size.toString());
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<PullRequestListResponse>(`/pull-requests${query}`);
+    },
+
+    get: (id: string): Promise<PullRequestDetail> => {
+      return fetchWithAuth<PullRequestDetail>(`/pull-requests/${id}`);
     },
   },
 };
@@ -302,4 +359,76 @@ export interface CommitDetail {
     avatar_url: string | null;
     user_type: string;
   } | null;
+}
+
+export interface PullRequestDetail {
+  id: string;
+  repository_id: string;
+  github_pr_id: number;
+  number: number;
+  title: string;
+  state: string; // 'OPEN' | 'CLOSED' | 'MERGED'
+  is_draft: boolean;
+  source_branch: string;
+  target_branch: string;
+  created_at_github: string;
+  updated_at_github: string;
+  closed_at: string | null;
+  merged_at: string | null;
+  first_reviewed_at: string | null;
+  additions: number;
+  deletions: number;
+  changed_files: number;
+  commit_count: number;
+  cycle_time_seconds: number | null;
+  merge_time_seconds: number | null;
+  first_review_time_seconds: number | null;
+  author_login: string | null;
+  author_avatar: string | null;
+}
+
+export interface PRAnalyticsSummary {
+  total_prs_opened: number;
+  total_prs_merged: number;
+  total_prs_closed_unmerged: number;
+  currently_open_prs: number;
+  merge_rate_percentage: number;
+  median_merge_time_hours: number | null;
+  p75_merge_time_hours: number | null;
+  median_cycle_time_hours: number | null;
+}
+
+export interface PRCadenceTrendPoint {
+  date: string;
+  opened: number;
+  merged: number;
+  closed: number;
+}
+
+export interface PRSizeBucket {
+  count: number;
+  avg_merge_hours: number | null;
+}
+
+export interface PRSizeDistribution {
+  small_under_100_lines: PRSizeBucket;
+  medium_100_to_500_lines: PRSizeBucket;
+  large_over_500_lines: PRSizeBucket;
+}
+
+export interface PRAnalyticsResponse {
+  time_window: string;
+  start_date: string;
+  end_date: string;
+  summary: PRAnalyticsSummary;
+  cadence_trend: PRCadenceTrendPoint[];
+  size_distribution: PRSizeDistribution;
+}
+
+export interface PullRequestListResponse {
+  items: PullRequestDetail[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
 }
