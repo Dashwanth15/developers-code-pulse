@@ -9,8 +9,18 @@ from app.database.session import get_db
 from app.models.auth import OrganizationMember, Role
 from app.schemas.commits import CommitAnalyticsResponse
 from app.schemas.pull_requests import PRAnalyticsResponse
+from app.schemas.reviews import (
+    PendingReviewQueueResponse,
+    ReviewAnalyticsResponse,
+    ReviewWorkloadResponse,
+)
 from app.services.analytics.commit_metrics import calculate_commit_analytics
 from app.services.analytics.pull_request_metrics import calculate_pull_request_analytics
+from app.services.analytics.review_metrics import (
+    calculate_review_analytics,
+    calculate_reviewer_workload,
+    get_pending_review_queue,
+)
 from app.services.auth.dependencies import require_role
 
 router = APIRouter(prefix="/analytics", tags=["Analytics & Intelligence"])
@@ -63,4 +73,65 @@ async def get_pull_request_analytics(
         time_window=time_window,
         start_date_str=start_date.isoformat() if start_date else None,
         end_date_str=end_date.isoformat() if end_date else None,
+    )
+
+
+@router.get(
+    "/reviews",
+    response_model=ReviewAnalyticsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Review Turnaround & Latency Intelligence",
+    description="Calculates Time to First Review (TTFR), approval turnaround, and turnaround distribution.",
+)
+async def get_review_analytics(
+    membership: Annotated[OrganizationMember, Depends(require_role(Role.VIEWER))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    repository_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    time_window: Annotated[str, Query(description="7d, 14d, 30d, 90d")] = "30d",
+) -> ReviewAnalyticsResponse:
+    return await calculate_review_analytics(
+        db=db,
+        organization_id=membership.organization_id,
+        repository_ids=repository_ids,
+        time_window=time_window,
+    )
+
+
+@router.get(
+    "/reviews/workload",
+    response_model=ReviewWorkloadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reviewer Workload & Gini Index",
+    description="Calculates peer review load distribution and team Gini concentration coefficient.",
+)
+async def get_reviewer_workload(
+    membership: Annotated[OrganizationMember, Depends(require_role(Role.VIEWER))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    repository_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    time_window: Annotated[str, Query(description="7d, 14d, 30d, 90d")] = "30d",
+) -> ReviewWorkloadResponse:
+    return await calculate_reviewer_workload(
+        db=db,
+        organization_id=membership.organization_id,
+        repository_ids=repository_ids,
+        time_window=time_window,
+    )
+
+
+@router.get(
+    "/reviews/pending",
+    response_model=PendingReviewQueueResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Urgent Pending Review Queue",
+    description="Real-time list of open pull requests waiting >= 12h for peer review.",
+)
+async def get_pending_reviews(
+    membership: Annotated[OrganizationMember, Depends(require_role(Role.VIEWER))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    repository_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+) -> PendingReviewQueueResponse:
+    return await get_pending_review_queue(
+        db=db,
+        organization_id=membership.organization_id,
+        repository_ids=repository_ids,
     )

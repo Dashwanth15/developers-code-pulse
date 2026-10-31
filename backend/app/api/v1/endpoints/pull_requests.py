@@ -10,7 +10,9 @@ from app.core.exceptions import DCPException
 from app.database.session import get_db
 from app.models.auth import OrganizationMember, Role
 from app.models.pull_requests import PullRequest
+from app.models.reviews import PRReview
 from app.schemas.pull_requests import PullRequestListResponse, PullRequestResponse
+from app.schemas.reviews import PRReviewDetailResponse
 from app.services.auth.dependencies import require_role
 
 router = APIRouter(prefix="/pull-requests", tags=["Pull Requests"])
@@ -153,3 +155,58 @@ async def get_pull_request(
         author_login=pr.author.login if pr.author else None,
         author_avatar=pr.author.avatar_url if pr.author else None,
     )
+
+
+@router.get(
+    "/{id}/reviews",
+    response_model=list[PRReviewDetailResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Get Pull Request Reviews",
+    description="Lists all peer reviews submitted for a specific pull request.",
+)
+async def get_pull_request_reviews(
+    id: uuid.UUID,
+    membership: Annotated[OrganizationMember, Depends(require_role(Role.VIEWER))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[PRReviewDetailResponse]:
+    pr_query = (
+        select(PullRequest)
+        .join(PullRequest.repository)
+        .where(
+            PullRequest.id == id,
+            PullRequest.repository.has(organization_id=membership.organization_id),
+        )
+    )
+    pr_result = await db.execute(pr_query)
+    pr = pr_result.scalar_one_or_none()
+    if not pr:
+        raise DCPException(
+            title="Pull Request Not Found",
+            detail=f"Pull request with ID '{id}' was not found in this organization.",
+            status_code=404,
+            code="PULL_REQUEST_NOT_FOUND",
+        )
+
+    review_query = (
+        select(PRReview)
+        .options(selectinload(PRReview.reviewer))
+        .where(PRReview.pull_request_id == id)
+        .order_by(PRReview.submitted_at.asc())
+    )
+    result = await db.execute(review_query)
+    reviews = result.scalars().all()
+
+    return [
+        PRReviewDetailResponse(
+            id=rev.id,
+            pull_request_id=rev.pull_request_id,
+            reviewer_account_id=rev.reviewer_account_id,
+            reviewer_login=rev.reviewer.login if rev.reviewer else None,
+            reviewer_avatar=rev.reviewer.avatar_url if rev.reviewer else None,
+            state=rev.state,
+            submitted_at=rev.submitted_at,
+            commit_sha=rev.commit_sha,
+        )
+        for rev in reviews
+    ]
+

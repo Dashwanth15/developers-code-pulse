@@ -262,6 +262,43 @@ export const api = {
       const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
       return fetchWithAuth<PRAnalyticsResponse>(`/analytics/pull-requests${query}`);
     },
+
+    getReviews: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+    }): Promise<ReviewAnalyticsResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<ReviewAnalyticsResponse>(`/analytics/reviews${query}`);
+    },
+
+    getReviewWorkload: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+    }): Promise<ReviewWorkloadResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<ReviewWorkloadResponse>(`/analytics/reviews/workload${query}`);
+    },
+
+    getPendingReviews: (params?: {
+      repository_ids?: string[];
+    }): Promise<PendingReviewQueueResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<PendingReviewQueueResponse>(`/analytics/reviews/pending${query}`);
+    },
   },
 
   pullRequests: {
@@ -282,6 +319,10 @@ export const api = {
 
     get: (id: string): Promise<PullRequestDetail> => {
       return fetchWithAuth<PullRequestDetail>(`/pull-requests/${id}`);
+    },
+
+    getReviews: (id: string): Promise<PRReviewDetail[]> => {
+      return fetchWithAuth<PRReviewDetail[]>(`/pull-requests/${id}/reviews`);
     },
   },
 };
@@ -432,3 +473,84 @@ export interface PullRequestListResponse {
   size: number;
   pages: number;
 }
+
+export interface TTFRMetrics {
+  median_hours: number | null;
+  p75_hours: number | null;
+  p90_hours: number | null;
+  benchmark_comparison: string;
+}
+
+export interface ApprovalTurnaroundMetrics {
+  median_hours: number | null;
+  p75_hours: number | null;
+}
+
+export interface ReviewSummaryMetrics {
+  time_to_first_review: TTFRMetrics;
+  approval_turnaround: ApprovalTurnaroundMetrics;
+  average_review_rounds: number;
+  review_coverage_rate: number;
+}
+
+export interface TurnaroundHistogramBucket {
+  range: string;
+  count: number;
+}
+
+export interface ReviewAnalyticsResponse {
+  time_window: string;
+  start_date: string;
+  end_date: string;
+  metrics: ReviewSummaryMetrics;
+  turnaround_histogram: TurnaroundHistogramBucket[];
+  pending_queue_count: number;
+}
+
+export interface ReviewerWorkloadItem {
+  account_id: string;
+  login: string;
+  name: string | null;
+  avatar_url: string | null;
+  reviews_conducted: number;
+  approvals_given: number;
+  changes_requested: number;
+  review_share_percentage: number;
+}
+
+export interface ReviewWorkloadResponse {
+  time_window: string;
+  gini_coefficient: number;
+  workload_balance_status: string; // 'BALANCED' | 'MODERATE' | 'UNBALANCED'
+  total_reviews: number;
+  reviewers: ReviewerWorkloadItem[];
+}
+
+export interface PendingReviewItem {
+  pull_request_id: string;
+  number: number;
+  title: string;
+  repository_name: string;
+  author_login: string | null;
+  author_avatar: string | null;
+  waiting_hours: number;
+  created_at: string;
+  requested_reviewers: string[];
+}
+
+export interface PendingReviewQueueResponse {
+  total_pending: number;
+  items: PendingReviewItem[];
+}
+
+export interface PRReviewDetail {
+  id: string;
+  pull_request_id: string;
+  reviewer_account_id: string | null;
+  reviewer_login: string | null;
+  reviewer_avatar: string | null;
+  state: string; // 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED'
+  submitted_at: string;
+  commit_sha: string | null;
+}
+

@@ -141,3 +141,26 @@ class GitHubClient:
             except httpx.RequestError as exc:
                 logger.error("github_client_error", full_name=full_name, error=str(exc))
                 return []
+
+    async def get_pull_request_reviews(
+        self, full_name: str, pr_number: int
+    ) -> list[dict]:
+        """Fetches submitted reviews for a specific pull request."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(
+                    f"{GITHUB_API_BASE}/repos/{full_name}/pulls/{pr_number}/reviews",
+                    headers=self._get_headers(),
+                )
+                if response.status_code == 200:
+                    return response.json()
+                logger.warning(
+                    "github_pr_reviews_fetch_failed",
+                    status=response.status_code,
+                    full_name=full_name,
+                    pr_number=pr_number,
+                )
+                return []
+            except httpx.RequestError as exc:
+                logger.error("github_client_error", full_name=full_name, error=str(exc))
+                return []

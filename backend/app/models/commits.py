@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.models.auth import Organization
     from app.models.github import Repository
     from app.models.pull_requests import PullRequest
+    from app.models.reviews import PRReview
 
 
 class GitHubAccount(Base, UUIDMixin, TimestampMixin):
@@ -46,6 +47,10 @@ class GitHubAccount(Base, UUIDMixin, TimestampMixin):
     pull_requests: Mapped[list["PullRequest"]] = relationship(
         "PullRequest",
         back_populates="author",
+    )
+    reviews_conducted: Mapped[list["PRReview"]] = relationship(
+        "PRReview",
+        back_populates="reviewer",
     )
 
     __table_args__ = (Index("ix_github_accounts_org_login", "organization_id", "login"),)

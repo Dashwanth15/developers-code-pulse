@@ -11,6 +11,7 @@ from app.database.base import Base, TimestampMixin, UUIDMixin
 if TYPE_CHECKING:
     from app.models.commits import GitHubAccount
     from app.models.github import Repository
+    from app.models.reviews import PRReview, ReviewRequest
 
 
 class PullRequest(Base, UUIDMixin, TimestampMixin):
@@ -124,6 +125,16 @@ class PullRequest(Base, UUIDMixin, TimestampMixin):
     # Relationships
     repository: Mapped["Repository"] = relationship("Repository", back_populates="pull_requests")
     author: Mapped["GitHubAccount | None"] = relationship("GitHubAccount", back_populates="pull_requests")
+    reviews: Mapped[list["PRReview"]] = relationship(
+        "PRReview",
+        back_populates="pull_request",
+        cascade="all, delete-orphan",
+    )
+    review_requests: Mapped[list["ReviewRequest"]] = relationship(
+        "ReviewRequest",
+        back_populates="pull_request",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("ix_pull_requests_repo_state_created", "repository_id", "state", "created_at_github"),
