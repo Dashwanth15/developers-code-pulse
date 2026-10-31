@@ -10,6 +10,7 @@ from app.database.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from app.models.auth import Organization
+    from app.models.commits import Commit
 
 
 class GitHubInstallation(Base, UUIDMixin, TimestampMixin):
@@ -77,6 +78,11 @@ class Repository(Base, UUIDMixin, TimestampMixin):
     webhook_deliveries: Mapped[list["WebhookDelivery"]] = relationship(
         "WebhookDelivery",
         back_populates="repository",
+    )
+    commits: Mapped[list["Commit"]] = relationship(
+        "Commit",
+        back_populates="repository",
+        cascade="all, delete-orphan",
     )
 
 

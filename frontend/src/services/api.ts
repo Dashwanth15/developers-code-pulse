@@ -182,6 +182,25 @@ export const api = {
         body: JSON.stringify({ is_monitored }),
       });
     },
+
+    getCommits: (
+      repoId: string,
+      params?: { limit?: number; offset?: number; branch?: string }
+    ): Promise<CommitDetail[]> => {
+      const searchParams = new URLSearchParams();
+      if (params?.limit) searchParams.set("limit", params.limit.toString());
+      if (params?.offset) searchParams.set("offset", params.offset.toString());
+      if (params?.branch) searchParams.set("branch", params.branch);
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<CommitDetail[]>(`/repositories/${repoId}/commits${query}`);
+    },
+
+    syncCommits: (repoId: string): Promise<{ status: string; synced_commits: number }> => {
+      return fetchWithAuth<{ status: string; synced_commits: number }>(
+        `/repositories/${repoId}/sync-commits`,
+        { method: "POST" }
+      );
+    },
   },
 
   github: {
@@ -189,4 +208,98 @@ export const api = {
       return fetchWithAuth<DiscoveredRepo[]>("/integrations/github/repositories");
     },
   },
+
+  analytics: {
+    getCommits: (params?: {
+      repository_ids?: string[];
+      time_window?: string;
+      start_date?: string;
+      end_date?: string;
+    }): Promise<CommitAnalyticsResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.time_window) searchParams.set("time_window", params.time_window);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.repository_ids && params.repository_ids.length > 0) {
+        params.repository_ids.forEach((id) => searchParams.append("repository_ids", id));
+      }
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<CommitAnalyticsResponse>(`/analytics/commits${query}`);
+    },
+  },
 };
+
+export interface CommitCadencePoint {
+  date: string;
+  commit_count: number;
+  additions: number;
+  deletions: number;
+}
+
+export interface CommitHeatmapPoint {
+  day_of_week: number;
+  hour_of_day: number;
+  commit_count: number;
+}
+
+export interface CommitContributorSummary {
+  author_id: string;
+  login: string;
+  name: string | null;
+  avatar_url: string | null;
+  commit_count: number;
+  additions: number;
+  deletions: number;
+  last_committed_at: string;
+}
+
+export interface RepositoryCommitSummary {
+  repository_id: string;
+  name: string;
+  commit_count: number;
+  additions: number;
+  deletions: number;
+  active_contributors_count: number;
+}
+
+export interface CommitAnalyticsSummary {
+  total_commits: number;
+  daily_cadence: number;
+  weekday_cadence: number;
+  active_contributors: number;
+  total_additions: number;
+  total_deletions: number;
+  total_churn: number;
+  merge_commit_count: number;
+}
+
+export interface CommitAnalyticsResponse {
+  time_window: string;
+  start_date: string;
+  end_date: string;
+  summary: CommitAnalyticsSummary;
+  cadence_trend: CommitCadencePoint[];
+  heatmap: CommitHeatmapPoint[];
+  top_contributors: CommitContributorSummary[];
+  repository_comparison: RepositoryCommitSummary[];
+}
+
+export interface CommitDetail {
+  id: string;
+  repository_id: string;
+  commit_sha: string;
+  message: string;
+  committed_at: string;
+  additions: number;
+  deletions: number;
+  total_changes: number;
+  branch_name: string;
+  is_merge_commit: boolean;
+  author: {
+    id: string;
+    login: string;
+    name: string | null;
+    avatar_url: string | null;
+    user_type: string;
+  } | null;
+}

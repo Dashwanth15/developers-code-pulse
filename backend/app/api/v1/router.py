@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, github, health, organizations, repositories
+from app.api.v1.endpoints import analytics, auth, github, health, organizations, repositories
 
 api_v1_router = APIRouter()
 
@@ -18,3 +18,6 @@ api_v1_router.include_router(github.router)
 
 # Repository Management (Module 3)
 api_v1_router.include_router(repositories.router)
+
+# Commit Intelligence & Analytics (Phase 3)
+api_v1_router.include_router(analytics.router)

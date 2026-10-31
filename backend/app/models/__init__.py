@@ -1,5 +1,6 @@
 from app.models.auth import Organization, OrganizationMember, RefreshToken, Role, User
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.commits import Commit, GitHubAccount
 from app.models.github import GitHubInstallation, Repository, WebhookDelivery
 
 __all__ = [
@@ -14,4 +15,6 @@ __all__ = [
     "GitHubInstallation",
     "Repository",
     "WebhookDelivery",
+    "Commit",
+    "GitHubAccount",
 ]
