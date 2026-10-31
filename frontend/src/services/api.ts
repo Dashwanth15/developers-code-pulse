@@ -571,6 +571,90 @@ export const api = {
       });
     },
   },
+
+  reports: {
+    list: (params?: {
+      report_type?: string;
+      repository_id?: string;
+      status?: string;
+      page?: number;
+      size?: number;
+    }): Promise<ReportListResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.report_type) searchParams.set("report_type", params.report_type);
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      if (params?.status) searchParams.set("status", params.status);
+      if (params?.page) searchParams.set("page", params.page.toString());
+      if (params?.size) searchParams.set("size", params.size.toString());
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<ReportListResponse>(`/reports${query}`);
+    },
+
+    get: (id: string): Promise<ReportResponse> => {
+      return fetchWithAuth<ReportResponse>(`/reports/${id}`);
+    },
+
+    generate: (payload: ReportGenerateRequest): Promise<ReportResponse> => {
+      return fetchWithAuth<ReportResponse>("/reports/generate", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    getDownloadUrl: (id: string): string => `${API_BASE_URL}/reports/${id}/download`,
+
+    listScheduled: (): Promise<ScheduledReportListResponse> => {
+      return fetchWithAuth<ScheduledReportListResponse>("/reports/scheduled");
+    },
+
+    createScheduled: (payload: ScheduledReportCreateRequest): Promise<ScheduledReportResponse> => {
+      return fetchWithAuth<ScheduledReportResponse>("/reports/scheduled", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    updateScheduled: (id: string, payload: ScheduledReportUpdateRequest): Promise<ScheduledReportResponse> => {
+      return fetchWithAuth<ScheduledReportResponse>(`/reports/scheduled/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    deleteScheduled: (id: string): Promise<void> => {
+      return fetchWithAuth<void>(`/reports/scheduled/${id}`, {
+        method: "DELETE",
+      });
+    },
+  },
+
+  insights: {
+    list: (params?: {
+      insight_type?: string;
+      repository_id?: string;
+      status?: string;
+      limit?: number;
+    }): Promise<AIInsightListResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.insight_type) searchParams.set("insight_type", params.insight_type);
+      if (params?.repository_id) searchParams.set("repository_id", params.repository_id);
+      if (params?.status) searchParams.set("status", params.status);
+      if (params?.limit) searchParams.set("limit", params.limit.toString());
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return fetchWithAuth<AIInsightListResponse>(`/insights${query}`);
+    },
+
+    get: (id: string): Promise<AIInsightResponse> => {
+      return fetchWithAuth<AIInsightResponse>(`/insights/${id}`);
+    },
+
+    generate: (payload?: AIInsightGenerateRequest): Promise<AIInsightListResponse> => {
+      return fetchWithAuth<AIInsightListResponse>("/insights/generate", {
+        method: "POST",
+        body: JSON.stringify(payload || {}),
+      });
+    },
+  },
 };
 
 export interface CommitCadencePoint {
@@ -1137,5 +1221,127 @@ export interface TeamTrendsResponse {
   time_window: string;
   series: TeamTrendSeriesPoint[];
 }
+
+// ==============================================================================
+// Phase 8: Reporting Engine & AI Engineering Insights Interfaces
+// ==============================================================================
+
+export interface ReportSectionResponse {
+  id: string;
+  report_id: string;
+  section_type: string;
+  title: string;
+  content: Record<string, unknown> | null;
+  evidence: Record<string, unknown> | null;
+  order_index: number;
+  created_at?: string | null;
+}
+
+export interface ReportGenerateRequest {
+  report_type: "ENGINEERING_HEALTH" | "WEEKLY" | "MONTHLY" | "REPOSITORY_HEALTH" | "DORA";
+  repository_id?: string | null;
+  time_range?: "7d" | "14d" | "30d" | "90d" | "custom";
+  start_date?: string | null;
+  end_date?: string | null;
+  title?: string | null;
+  include_ai_insights?: boolean;
+  format?: string;
+}
+
+export interface ReportResponse {
+  id: string;
+  organization_id: string;
+  repository_id: string | null;
+  report_type: string;
+  title: string;
+  reporting_period_start: string;
+  reporting_period_end: string;
+  status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED";
+  file_reference: string | null;
+  download_url: string | null;
+  generated_at: string | null;
+  generated_by: string | null;
+  sections: ReportSectionResponse[];
+  metadata_payload?: Record<string, unknown> | null;
+  created_at?: string | null;
+}
+
+export interface ReportListResponse {
+  items: ReportResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ScheduledReportCreateRequest {
+  report_type: "ENGINEERING_HEALTH" | "WEEKLY" | "MONTHLY" | "REPOSITORY_HEALTH" | "DORA";
+  repository_id?: string | null;
+  frequency: "DAILY" | "WEEKLY" | "MONTHLY";
+  timezone?: string;
+  recipients?: string[];
+  enabled?: boolean;
+}
+
+export interface ScheduledReportUpdateRequest {
+  frequency?: "DAILY" | "WEEKLY" | "MONTHLY";
+  timezone?: string;
+  recipients?: string[];
+  enabled?: boolean;
+}
+
+export interface ScheduledReportResponse {
+  id: string;
+  organization_id: string;
+  repository_id: string | null;
+  report_type: string;
+  frequency: string;
+  next_run_at: string;
+  timezone: string;
+  enabled: boolean;
+  recipients: string[];
+  created_by?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ScheduledReportListResponse {
+  items: ScheduledReportResponse[];
+  total: number;
+}
+
+export interface AIInsightBase {
+  insight_type: string;
+  title: string;
+  explanation: string;
+  evidence: Record<string, unknown> | null;
+  recommendation: string | null;
+  confidence: number;
+}
+
+export interface AIInsightGenerateRequest {
+  repository_id?: string | null;
+  time_range?: string;
+  focus_areas?: string[];
+}
+
+export interface AIInsightResponse extends AIInsightBase {
+  id: string;
+  organization_id: string;
+  repository_id: string | null;
+  provider: string;
+  model: string;
+  generated_at: string;
+  status: string;
+  created_at?: string | null;
+}
+
+export interface AIInsightListResponse {
+  items: AIInsightResponse[];
+  total: number;
+  executive_summary: string | null;
+  ai_provider_configured: boolean;
+  provider_name: string;
+}
+
 
 

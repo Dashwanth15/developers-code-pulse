@@ -819,3 +819,30 @@ async def generate_and_save_dora_snapshots(
 
     await db.commit()
     return snapshots
+
+
+class DORAMetricsService:
+    """Service wrapper for DORA metrics calculations."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def get_dora_overview(
+        self,
+        organization_id: uuid.UUID,
+        repository_id: uuid.UUID | None = None,
+        time_window: str = "30d",
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> DORAOverviewResponse:
+        s_date = start_date.date() if isinstance(start_date, datetime) else start_date
+        e_date = end_date.date() if isinstance(end_date, datetime) else end_date
+        return await calculate_dora_overview(
+            db=self.db,
+            organization_id=organization_id,
+            repository_id=repository_id,
+            time_window=time_window,
+            start_date=s_date,
+            end_date=e_date,
+        )
+

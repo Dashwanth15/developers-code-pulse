@@ -15,6 +15,7 @@ import { TeamInsightsPage } from "@/pages/team-insights/TeamInsightsPage";
 import { BottlenecksPage } from "@/pages/bottlenecks/BottlenecksPage";
 import { DoraPage } from "@/pages/dora/DoraPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
+import { AiInsightsPage } from "@/pages/insights/AiInsightsPage";
 import { IntegrationsPage } from "@/pages/integrations/IntegrationsPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
@@ -52,6 +53,7 @@ export const App: React.FC = () => {
                 <Route path="/bottlenecks" element={<BottlenecksPage />} />
                 <Route path="/dora" element={<DoraPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/insights" element={<AiInsightsPage />} />
                 <Route path="/integrations" element={<IntegrationsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

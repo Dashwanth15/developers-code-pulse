@@ -58,4 +58,7 @@ Thumbs.db
 postgres_data/
 redis_data/
 grafana_data/
+storage/
+data/
+*.pdf
 *.log

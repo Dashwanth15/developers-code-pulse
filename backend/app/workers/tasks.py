@@ -258,3 +258,142 @@ def calculate_dora_snapshots_task(
         logger.error("dora_snapshots_task_failed", error=str(exc))
         raise self.retry(exc=exc) from exc
 
+
+@celery_app.task(
+    name="app.workers.tasks.generate_report_task",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=15,
+)
+def generate_report_task(
+    self,
+    organization_id: str,
+    report_type: str,
+    repository_id: str | None = None,
+    time_range: str = "30d",
+    title: str | None = None,
+    generated_by: str | None = None,
+    include_ai_insights: bool = True,
+) -> dict:
+    """
+    Background asynchronous Celery task compiling an engineering report
+    and rendering its PDF artifact.
+    """
+    import asyncio
+    import uuid
+
+    from app.database.session import get_session_factory
+    from app.services.reports.report_engine import ReportEngine
+
+    logger.info(
+        "generate_report_task_started",
+        org_id=organization_id,
+        report_type=report_type,
+        task_id=self.request.id,
+    )
+
+    async def _execute() -> dict:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            engine = ReportEngine(session)
+            org_uuid = uuid.UUID(organization_id)
+            repo_uuid = uuid.UUID(repository_id) if repository_id else None
+            user_uuid = uuid.UUID(generated_by) if generated_by else None
+
+            report = await engine.generate_report(
+                organization_id=org_uuid,
+                report_type=report_type,
+                repository_id=repo_uuid,
+                time_range=time_range,
+                title=title,
+                generated_by=user_uuid,
+                include_ai_insights=include_ai_insights,
+            )
+            return {
+                "report_id": str(report.id),
+                "status": report.status,
+                "file_reference": report.file_reference,
+                "completed_at": datetime.now(UTC).isoformat(),
+            }
+
+    try:
+        result = asyncio.run(_execute())
+        logger.info("generate_report_task_completed", **result)
+        return result
+    except Exception as exc:
+        logger.error("generate_report_task_failed", error=str(exc))
+        raise self.retry(exc=exc) from exc
+
+
+@celery_app.task(
+    name="app.workers.tasks.process_scheduled_reports_task",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=30,
+)
+def process_scheduled_reports_task(self) -> dict:
+    """
+    Periodic task scanning for due scheduled reports, generating deliverables,
+    and incrementing next_run_at timestamps.
+    """
+    import asyncio
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from app.database.session import get_session_factory
+    from app.models.reports import ScheduledReport
+    from app.services.reports.report_engine import ReportEngine
+
+    logger.info("process_scheduled_reports_task_started", task_id=self.request.id)
+
+    async def _execute() -> dict:
+        session_factory = get_session_factory()
+        processed_count = 0
+        async with session_factory() as session:
+            now = datetime.now(UTC)
+            query = select(ScheduledReport).where(
+                ScheduledReport.enabled == True,  # noqa: E712
+                ScheduledReport.next_run_at <= now,
+            )
+            due_reports = (await session.execute(query)).scalars().all()
+            engine = ReportEngine(session)
+
+            for sched in due_reports:
+                try:
+                    await engine.generate_report(
+                        organization_id=sched.organization_id,
+                        report_type=sched.report_type,
+                        repository_id=sched.repository_id,
+                        time_range="7d" if sched.frequency == "WEEKLY" else "30d",
+                        title=f"Scheduled {sched.frequency.title()} {sched.report_type.replace('_', ' ').title()}",
+                        include_ai_insights=True,
+                    )
+                    # Advance next_run_at
+                    if sched.frequency == "DAILY":
+                        sched.next_run_at = sched.next_run_at + timedelta(days=1)
+                    elif sched.frequency == "WEEKLY":
+                        sched.next_run_at = sched.next_run_at + timedelta(days=7)
+                    else:  # MONTHLY
+                        sched.next_run_at = sched.next_run_at + timedelta(days=30)
+
+                    processed_count += 1
+                except Exception as sched_err:
+                    logger.error("error_generating_scheduled_report", id=str(sched.id), error=str(sched_err))
+
+            await session.commit()
+            return {
+                "due_scheduled_reports": len(due_reports),
+                "processed_count": processed_count,
+                "executed_at": datetime.now(UTC).isoformat(),
+            }
+
+    try:
+        result = asyncio.run(_execute())
+        logger.info("process_scheduled_reports_task_finished", **result)
+        return result
+    except Exception as exc:
+        logger.error("process_scheduled_reports_task_failed", error=str(exc))
+        raise self.retry(exc=exc) from exc
+
+

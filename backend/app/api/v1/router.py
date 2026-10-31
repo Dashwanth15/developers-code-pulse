@@ -8,8 +8,10 @@ from app.api.v1.endpoints import (
     github,
     health,
     incidents,
+    insights,
     organizations,
     pull_requests,
+    reports,
     repositories,
 )
 
@@ -44,4 +46,10 @@ api_v1_router.include_router(deployments.router)
 
 # DORA Incidents & Outages (Phase 7)
 api_v1_router.include_router(incidents.router)
+
+# Reporting Engine (Phase 8)
+api_v1_router.include_router(reports.router)
+
+# AI Engineering Insights (Phase 8)
+api_v1_router.include_router(insights.router)
 

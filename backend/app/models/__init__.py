@@ -5,6 +5,7 @@ from app.models.commits import Commit, GitHubAccount
 from app.models.dora import Deployment, DeploymentIncident, DORAMetricSnapshot, Incident
 from app.models.github import GitHubInstallation, Repository, WebhookDelivery
 from app.models.pull_requests import PullRequest
+from app.models.reports import AIInsight, Report, ReportSection, ScheduledReport
 from app.models.reviews import PRReview, ReviewRequest
 
 __all__ = [
@@ -31,5 +32,9 @@ __all__ = [
     "Incident",
     "DeploymentIncident",
     "DORAMetricSnapshot",
+    "Report",
+    "ReportSection",
+    "AIInsight",
+    "ScheduledReport",
 ]
 

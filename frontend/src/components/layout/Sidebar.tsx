@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Gauge,
   FileText,
+  Sparkles,
   Boxes,
   Settings,
   Activity,
@@ -67,6 +68,7 @@ const navGroups: NavGroup[] = [
     label: "REPORTING",
     items: [
       { title: "Engineering Reports", path: "/reports", icon: FileText },
+      { title: "AI Insights", path: "/insights", icon: Sparkles, badge: "AI" },
     ],
   },
   {

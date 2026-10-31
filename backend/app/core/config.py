@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str | None = Field(default=None)
     GITHUB_USER: str | None = Field(default=None)
 
+    # AI Engine & Gemini Integration
+    AI_PROVIDER: str = Field(default="gemini")
+    GEMINI_API_KEY: str | None = Field(default=None)
+    GEMINI_MODEL: str = Field(default="gemini-1.5-flash")
+    REPORTS_STORAGE_PATH: str = Field(default="storage/reports")
+
 
 @lru_cache
 def get_settings() -> Settings:
