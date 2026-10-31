@@ -38,7 +38,7 @@ describe("Developers Code Pulse Frontend Shell", () => {
     await user.click(repoLink);
 
     expect(screen.getByText("Connected Repositories")).toBeInTheDocument();
-    expect(screen.getByText("No Repositories Connected Yet")).toBeInTheDocument();
+    expect(await screen.findByText("No Repositories Connected Yet")).toBeInTheDocument();
   });
 
   it("navigates to Settings page and displays Anti-Surveillance commitment", async () => {

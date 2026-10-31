@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 // Pages
@@ -16,6 +17,8 @@ import { DoraPage } from "@/pages/dora/DoraPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
 import { IntegrationsPage } from "@/pages/integrations/IntegrationsPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { LoginPage } from "@/pages/auth/LoginPage";
+import { RegisterPage } from "@/pages/auth/RegisterPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,24 +34,31 @@ export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="dcp-theme">
-        <BrowserRouter>
-          <Routes>
-            <Route element={<DashboardLayout />}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/repositories" element={<RepositoriesPage />} />
-              <Route path="/commits" element={<CommitsPage />} />
-              <Route path="/pull-requests" element={<PullRequestsPage />} />
-              <Route path="/reviews" element={<ReviewsPage />} />
-              <Route path="/team-insights" element={<TeamInsightsPage />} />
-              <Route path="/bottlenecks" element={<BottlenecksPage />} />
-              <Route path="/dora" element={<DoraPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/integrations" element={<IntegrationsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public Auth Routes */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+
+              {/* Main Application Layout */}
+              <Route element={<DashboardLayout />}>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/repositories" element={<RepositoriesPage />} />
+                <Route path="/commits" element={<CommitsPage />} />
+                <Route path="/pull-requests" element={<PullRequestsPage />} />
+                <Route path="/reviews" element={<ReviewsPage />} />
+                <Route path="/team-insights" element={<TeamInsightsPage />} />
+                <Route path="/bottlenecks" element={<BottlenecksPage />} />
+                <Route path="/dora" element={<DoraPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/integrations" element={<IntegrationsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

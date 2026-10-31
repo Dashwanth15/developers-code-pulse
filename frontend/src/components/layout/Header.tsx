@@ -1,6 +1,8 @@
 import React from "react";
-import { Moon, Sun, Menu, Activity, ShieldCheck } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Moon, Sun, Menu, Activity, ShieldCheck, LogOut, User as UserIcon } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -8,6 +10,14 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { theme, setTheme } = useTheme();
+  const { user, activeOrg, isAuthenticated, logout } = useAuth();
+
+  const getInitials = (name?: string) => {
+    if (!name) return "DCP";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-card/80 px-4 md:px-6 backdrop-blur transition-all">
@@ -25,9 +35,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             <ShieldCheck className="h-3.5 w-3.5 text-primary" />
             Developers Code Pulse
           </span>
-          <span className="hidden sm:inline-block text-xs text-muted-foreground">
-            v0.1.0 • Standalone Intelligence
-          </span>
+          {activeOrg ? (
+            <span className="hidden sm:inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary border border-primary/20">
+              {activeOrg.organization_name} ({activeOrg.role})
+            </span>
+          ) : (
+            <span className="hidden sm:inline-block text-xs text-muted-foreground">
+              v0.2.0 • Standalone Intelligence
+            </span>
+          )}
         </div>
       </div>
 
@@ -55,10 +71,35 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           )}
         </button>
 
-        {/* User Avatar Placeholder */}
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-xs border border-primary/20">
-          DCP
-        </div>
+        {/* User Info / Auth Controls */}
+        {isAuthenticated && user ? (
+          <div className="flex items-center gap-2">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary font-semibold text-xs border border-primary/30"
+              title={`${user.full_name} (${user.email})`}
+            >
+              {getInitials(user.full_name)}
+            </div>
+            <button
+              onClick={logout}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
+              title="Sign Out"
+              aria-label="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary transition-all"
+            >
+              <UserIcon className="h-3.5 w-3.5" />
+              <span>Sign In</span>
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );
