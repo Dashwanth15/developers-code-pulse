@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import get_settings
+from app.core.metrics import DB_CONNECTION_STATUS, REDIS_CONNECTION_STATUS
 
 logger = structlog.get_logger(__name__)
 settings = get_settings()
@@ -29,7 +30,8 @@ def get_engine() -> AsyncEngine:
             pool_size=settings.DB_POOL_SIZE,
             max_overflow=settings.DB_MAX_OVERFLOW,
             pool_timeout=settings.DB_POOL_TIMEOUT,
-            pool_pre_ping=True,
+            pool_recycle=1800,  # Recycle connections after 30m to avoid stale firewall drops
+            pool_pre_ping=True,  # Test connection liveness before checking out from pool
         )
     return engine
 
@@ -74,6 +76,7 @@ async def check_db_connectivity() -> tuple[bool, str | None]:
     """
     Validates PostgreSQL connectivity by executing 'SELECT 1'.
     Returns (True, None) on success or (False, error_message) on failure.
+    Updates Prometheus DB_CONNECTION_STATUS gauge.
     """
 
     async def _ping() -> tuple[bool, str | None]:
@@ -82,16 +85,20 @@ async def check_db_connectivity() -> tuple[bool, str | None]:
             result = await session.execute(text("SELECT 1"))
             val = result.scalar()
             if val == 1:
+                DB_CONNECTION_STATUS.set(1)
                 return True, None
+            DB_CONNECTION_STATUS.set(0)
             return False, f"Unexpected query response: {val}"
 
     try:
         return await asyncio.wait_for(_ping(), timeout=3.0)
     except TimeoutError:
         logger.warning("db_connectivity_check_timed_out")
+        DB_CONNECTION_STATUS.set(0)
         return False, "Database connection timed out after 3.0s"
     except Exception as exc:
         logger.error("db_connectivity_check_failed", error=str(exc))
+        DB_CONNECTION_STATUS.set(0)
         return False, str(exc)
 
 
@@ -99,6 +106,7 @@ async def check_redis_connectivity() -> tuple[bool, str | None]:
     """
     Validates Redis connectivity via a PING command.
     Returns (True, None) on success or (False, error_message) on failure.
+    Updates Prometheus REDIS_CONNECTION_STATUS gauge.
     """
     try:
         client = aioredis.from_url(
@@ -109,8 +117,11 @@ async def check_redis_connectivity() -> tuple[bool, str | None]:
         res = await client.ping()
         await client.aclose()
         if res:
+            REDIS_CONNECTION_STATUS.set(1)
             return True, None
+        REDIS_CONNECTION_STATUS.set(0)
         return False, "Redis ping returned falsy"
     except Exception as exc:
         logger.error("redis_connectivity_check_failed", error=str(exc))
+        REDIS_CONNECTION_STATUS.set(0)
         return False, str(exc)

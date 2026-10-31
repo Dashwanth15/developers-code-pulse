@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 
 // Pages
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
@@ -37,28 +38,30 @@ export const App: React.FC = () => {
       <ThemeProvider defaultTheme="system" storageKey="dcp-theme">
         <AuthProvider>
           <BrowserRouter>
-            <Routes>
-              {/* Public Auth Routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+            <ErrorBoundary>
+              <Routes>
+                {/* Public Auth Routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-              {/* Main Application Layout */}
-              <Route element={<DashboardLayout />}>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/repositories" element={<RepositoriesPage />} />
-                <Route path="/commits" element={<CommitsPage />} />
-                <Route path="/pull-requests" element={<PullRequestsPage />} />
-                <Route path="/reviews" element={<ReviewsPage />} />
-                <Route path="/team-insights" element={<TeamInsightsPage />} />
-                <Route path="/bottlenecks" element={<BottlenecksPage />} />
-                <Route path="/dora" element={<DoraPage />} />
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="/insights" element={<AiInsightsPage />} />
-                <Route path="/integrations" element={<IntegrationsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Route>
-            </Routes>
+                {/* Main Application Layout */}
+                <Route element={<DashboardLayout />}>
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/repositories" element={<RepositoriesPage />} />
+                  <Route path="/commits" element={<CommitsPage />} />
+                  <Route path="/pull-requests" element={<PullRequestsPage />} />
+                  <Route path="/reviews" element={<ReviewsPage />} />
+                  <Route path="/team-insights" element={<TeamInsightsPage />} />
+                  <Route path="/bottlenecks" element={<BottlenecksPage />} />
+                  <Route path="/dora" element={<DoraPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/insights" element={<AiInsightsPage />} />
+                  <Route path="/integrations" element={<IntegrationsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Route>
+              </Routes>
+            </ErrorBoundary>
           </BrowserRouter>
         </AuthProvider>
       </ThemeProvider>

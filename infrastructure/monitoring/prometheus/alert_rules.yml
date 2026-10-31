@@ -1,0 +1,74 @@
+groups:
+  - name: dcp_production_alerts
+    rules:
+      # 1. API Downtime
+      - alert: ApiDowntime
+        expr: up{job="dcp-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DCP Backend API instance is down"
+          description: "The FastAPI backend container has been unreachable for more than 1 minute."
+
+      # 2. Elevated HTTP Error Rate (> 5% 5xx responses)
+      - alert: ElevatedErrorRate
+        expr: >
+          (sum(rate(dcp_http_requests_total{status_code=~"5.."}[5m]))
+          / sum(rate(dcp_http_requests_total[5m]))) * 100 > 5
+        for: 3m
+        labels:
+          severity: high
+        annotations:
+          summary: "Elevated HTTP 5xx error rate"
+          description: "Over 5% of API requests returned 5xx status codes over the last 5 minutes."
+
+      # 3. High Request Latency (p95 > 1.5s)
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.95, sum(rate(dcp_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API response latency (p95 > 1.5s)"
+          description: "95th percentile response time exceeds 1.5 seconds over the last 5 minutes."
+
+      # 4. PostgreSQL Database Unavailability
+      - alert: DatabaseUnavailability
+        expr: dcp_db_connection_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL Database connection degraded or down"
+          description: "Active database connectivity probe failed. API queries will fail."
+
+      # 5. Redis Broker & Cache Unavailability
+      - alert: RedisUnavailability
+        expr: dcp_redis_connection_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis Broker/Cache connection degraded or down"
+          description: "Redis ping failed. Celery background queue processing is suspended."
+
+      # 6. Celery Task Failures
+      - alert: RepeatedTaskFailures
+        expr: sum(rate(dcp_celery_tasks_total{status="FAILURE"}[10m])) > 0.05
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Repeated Celery background task failures"
+          description: "Background worker tasks are experiencing elevated failure rates."
+
+      # 7. Slow Report Generation
+      - alert: SlowReportGeneration
+        expr: histogram_quantile(0.90, sum(rate(dcp_report_generation_duration_seconds_bucket[15m])) by (le)) > 45.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Report generation p90 duration exceeded 45 seconds"
+          description: "PDF compilation or AI executive summary synthesis is running unusually slowly."

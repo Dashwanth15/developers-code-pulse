@@ -15,6 +15,12 @@ from app.core.exceptions import (
     unhandled_exception_handler,
 )
 from app.core.logging import setup_logging
+from app.core.metrics import get_metrics_response, prometheus_metrics_middleware
+from app.core.security_middleware import (
+    rate_limiting_middleware,
+    request_size_limit_middleware,
+    security_headers_middleware,
+)
 from app.database.session import close_engine, get_engine
 
 logger = structlog.get_logger(__name__)
@@ -24,7 +30,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Manages application startup and graceful shutdown lifecycles."""
-    setup_logging()
+    setup_logging(service_name="dcp-api")
     logger.info(
         "application_starting",
         app_name=settings.APP_NAME,
@@ -51,7 +57,7 @@ def create_application() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS Middleware
+    # 1. CORS Middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
@@ -60,7 +66,12 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Request Tracing & Structured Logging Middleware
+    # 2. Prometheus Metrics Middleware
+    @app.middleware("http")
+    async def metrics_middleware(request: Request, call_next) -> Response:
+        return await prometheus_metrics_middleware(request, call_next)
+
+    # 3. Request Tracing & Structured Logging Middleware
     @app.middleware("http")
     async def request_logging_middleware(request: Request, call_next) -> Response:
         trace_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
@@ -90,6 +101,21 @@ def create_application() -> FastAPI:
         )
         return response
 
+    # 4. Request Size Limit Middleware (protect against payload exhaustion)
+    @app.middleware("http")
+    async def size_limit_middleware(request: Request, call_next) -> Response:
+        return await request_size_limit_middleware(request, call_next)
+
+    # 5. Sliding Window Rate Limiting Middleware
+    @app.middleware("http")
+    async def rate_limit_middleware(request: Request, call_next) -> Response:
+        return await rate_limiting_middleware(request, call_next)
+
+    # 6. Security Headers Middleware (outermost: applies to all responses)
+    @app.middleware("http")
+    async def sec_headers_middleware(request: Request, call_next) -> Response:
+        return await security_headers_middleware(request, call_next)
+
     # Exception Handlers
     app.add_exception_handler(DCPException, dcp_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
@@ -104,7 +130,14 @@ def create_application() -> FastAPI:
             "docs": f"{settings.API_V1_STR}/docs",
             "health": f"{settings.API_V1_STR}/health",
             "ready": f"{settings.API_V1_STR}/ready",
+            "metrics": "/metrics",
         }
+
+    # Prometheus Scraping Endpoint
+    @app.get("/metrics", tags=["System"], summary="Prometheus Metrics")
+    async def metrics_endpoint() -> Response:
+        """Prometheus metrics endpoint scraped by monitoring systems."""
+        return get_metrics_response()
 
     # Mount API v1 Routes
     app.include_router(api_v1_router, prefix=settings.API_V1_STR)

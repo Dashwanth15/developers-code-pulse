@@ -1,0 +1,268 @@
+services:
+  # ============================================================================
+  # 1. PostgreSQL 16 Production Relational Database
+  # ============================================================================
+  dcp-db:
+    image: postgres:16-alpine
+    container_name: dcp-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Security: Database port is NOT published publicly to the host network
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+        reservations:
+          memory: 512M
+    networks:
+      - dcp-internal
+
+  # ============================================================================
+  # 2. Redis 7.2 Broker and In-Memory Cache
+  # ============================================================================
+  dcp-redis:
+    image: redis:7.2-alpine
+    container_name: dcp-redis-prod
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-}"]
+    # Security: Redis port is NOT published publicly to the host network
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+    networks:
+      - dcp-internal
+
+  # ============================================================================
+  # 3. DCP FastAPI Backend (Gunicorn + Uvicorn Workers)
+  # ============================================================================
+  dcp-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dcp-api-prod
+    restart: unless-stopped
+    command: >
+      gunicorn app.main:app
+      --workers 4
+      --worker-class uvicorn.workers.UvicornWorker
+      --bind 0.0.0.0:8000
+      --timeout 60
+      --graceful-timeout 30
+      --access-logfile -
+      --error-logfile -
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@dcp-db:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+      - REPORTS_STORAGE_PATH=/app/storage/reports
+    volumes:
+      - reports_prod_data:/app/storage/reports
+    depends_on:
+      dcp-db:
+        condition: service_healthy
+      dcp-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    networks:
+      - dcp-internal
+
+  # ============================================================================
+  # 4. Dedicated Celery Background Worker Container
+  # ============================================================================
+  dcp-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dcp-worker-prod
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app worker
+      --loglevel=info
+      -Q webhooks,repo_sync,analytics_calc,report_gen
+      --concurrency=4
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@dcp-db:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+      - REPORTS_STORAGE_PATH=/app/storage/reports
+    volumes:
+      - reports_prod_data:/app/storage/reports
+    depends_on:
+      dcp-db:
+        condition: service_healthy
+      dcp-redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    networks:
+      - dcp-internal
+
+  # ============================================================================
+  # 5. Dedicated Celery Beat Scheduler Container (Singleton)
+  # ============================================================================
+  dcp-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dcp-beat-prod
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app beat
+      --loglevel=info
+      -s /app/storage/celerybeat-schedule
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@dcp-db:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-}@dcp-redis:6379/0
+    volumes:
+      - beat_prod_data:/app/storage
+    depends_on:
+      dcp-redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    networks:
+      - dcp-internal
+
+  # ============================================================================
+  # 6. DCP Frontend (Compiled React SPA on Unprivileged Nginx)
+  # ============================================================================
+  dcp-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dcp-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "80:8080"
+    depends_on:
+      dcp-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    networks:
+      - dcp-internal
+      - dcp-public
+
+  # ============================================================================
+  # 7. Prometheus Metrics Collector
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    container_name: dcp-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--storage.tsdb.retention.time=30d"
+    volumes:
+      - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - dcp-api
+    networks:
+      - dcp-internal
+
+  # ============================================================================
+  # 8. Grafana Observability Dashboards
+  # ============================================================================
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: dcp-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin_change_in_prod}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - dcp-internal
+      - dcp-public
+
+# ==============================================================================
+# Persistent Volumes
+# ==============================================================================
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  reports_prod_data:
+  beat_prod_data:
+  prometheus_data:
+  grafana_data:
+
+# ==============================================================================
+# Isolated Networks
+# ==============================================================================
+networks:
+  dcp-internal:
+    driver: bridge
+    internal: true
+  dcp-public:
+    driver: bridge

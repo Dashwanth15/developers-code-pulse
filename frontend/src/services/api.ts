@@ -81,32 +81,49 @@ async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Pr
     headers.set("X-Organization-ID", orgId);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  if (!response.ok) {
-    let errorDetail = "An unexpected error occurred.";
-    let errorCode = "HTTP_ERROR";
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: options.signal || controller.signal,
+    });
 
-    try {
-      const errData = await response.json();
-      errorDetail = errData.detail || errData.title || errorDetail;
-      errorCode = errData.code || errorCode;
-    } catch {
-      // Non-json response
+    if (!response.ok) {
+      let errorDetail = "An unexpected error occurred.";
+      let errorCode = "HTTP_ERROR";
+
+      try {
+        const errData = await response.json();
+        errorDetail = errData.detail || errData.title || errorDetail;
+        errorCode = errData.code || errorCode;
+      } catch {
+        // Non-json response
+      }
+
+      throw new ApiError(response.status, errorDetail, errorCode);
     }
 
-    throw new ApiError(response.status, errorDetail, errorCode);
-  }
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return {} as T;
+    }
 
-  // Handle 204 No Content
-  if (response.status === 204) {
-    return {} as T;
+    return response.json();
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError(
+        408,
+        "Request timed out after 30 seconds. Please check server availability.",
+        "TIMEOUT"
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.json();
 }
 
 export const api = {

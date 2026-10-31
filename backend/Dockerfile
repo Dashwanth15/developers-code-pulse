@@ -24,6 +24,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 10001 dcpuser
@@ -32,6 +33,10 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
+
+# Create required persistent storage directories
+RUN mkdir -p /app/storage/reports /app/data && \
+    chown -R dcpuser:dcpuser /app
 
 COPY . .
 RUN chown -R dcpuser:dcpuser /app

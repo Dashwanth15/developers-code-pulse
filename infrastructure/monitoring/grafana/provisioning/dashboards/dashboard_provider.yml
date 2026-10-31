@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "DCP Production Dashboards"
+    orgId: 1
+    folder: "Developers Code Pulse"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
