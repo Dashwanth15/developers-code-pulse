@@ -3,6 +3,7 @@ import os
 import httpx
 import structlog
 
+from app.core.config import get_settings
 from app.core.exceptions import DCPException
 from app.schemas.github import DiscoveredRepoResponse
 
@@ -15,7 +16,7 @@ class GitHubClient:
     """Asynchronous client for querying GitHub REST APIs."""
 
     def __init__(self, token: str | None = None):
-        self.token = token or os.getenv("GITHUB_TOKEN")
+        self.token = token or get_settings().GITHUB_TOKEN or os.getenv("GITHUB_TOKEN")
 
     def _get_headers(self) -> dict[str, str]:
         headers = {

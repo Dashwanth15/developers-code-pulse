@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
+    # GitHub Integration
+    GITHUB_TOKEN: str | None = Field(default=None)
+    GITHUB_USER: str | None = Field(default=None)
+
 
 @lru_cache
 def get_settings() -> Settings:
